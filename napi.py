@@ -7,7 +7,7 @@
 
 from __future__ import with_statement
 
-__version__   = 'version 0.5-a1'
+__version__   = 'version 0.6-a1'
 __author__    = 'Marcin ``MySZ`` Sztolcman <marcin@urzenia.net> (based od napi.py from APCOH - 0.15b), extensions by Grzegorz Antoniak <ga@anadoxin.org>'
 __copyright__ = '(r) 2008 - 2009'
 __program__   = 'napi.py - find and download polish subtitles for films (from http://www.napiprojekt.pl/)'
