@@ -8,7 +8,7 @@
 from __future__ import with_statement
 
 __version__   = 'version 0.5-a1'
-__author__    = 'Marcin ``MySZ`` Sztolcman <marcin@urzenia.net> (based od napi.py from http://hacking.apcoh.com/2008/01/napi_06.html - 0.15b)'
+__author__    = 'Marcin ``MySZ`` Sztolcman <marcin@urzenia.net> (based od napi.py from APCOH - 0.15b), extensions by Grzegorz Antoniak <ga@anadoxin.org>'
 __copyright__ = '(r) 2008 - 2009'
 __program__   = 'napi.py - find and download polish subtitles for films (from http://www.napiprojekt.pl/)'
 __date__      = '2008-11-21'
@@ -129,14 +129,36 @@ def extract_subtitles (data):
     # return content of subtitles
     return stdout
 
-def get_subtitles (film, output=None):
-    if not os.path.isfile (film):
-        return False
+def get_hashes (hashes, output=None):
+    valid_hashes = []
+    for h in hashes:
+        m = re.match ('^napiprojekt:([0-9a-fA-F]{32})$', h)
+        if m:
+            valid_hashes.append (m.group(1))
+        m = re.match ('^([0-9a-fA-F]{32})$', h)
+        if m:
+            valid_hashes.append (m.group(1))
 
-    md5 = calculate_md5 (film)
+    if len (valid_hashes) == 0:
+        print ("A hash is a 32-character alphanumeric string, here some are examples:")
+        print ("")
+        print ("    1. napiprojekt:98b7361f7e2990a7e0ed2969551a5e68")
+        print ("    2. 98b7361f7e2990a7e0ed2969551a5e68")
+        print ("")
+        print ("Now, please correct yourself!")
+        return
+
+    for h in valid_hashes:
+        # this lambda is used as an identity function
+        get_subtitles(h, lambda x: x, output)
+
+def get_subtitles (film, provide_hash_function, output=None):
+    md5 = provide_hash_function (film)
 
     url = 'http://napiprojekt.pl/unit_napisy/dl.php?l=PL&f=%s&t=%s&v=other&kolejka=false&nick=&pass=&napios=%s'
     url %= (md5, calculate_f (md5), os.name)
+
+    print ("Getting URL %s" % url)
 
     # download and extract subtitles if found
     data = urllib.urlopen (url).read ()
@@ -197,18 +219,44 @@ def find_films (path, recursive=False):
 def main ():
     import getopt
 
-    usage = __desc__ + "\n\n" + '''%s [-h|--help] [-v|--version] [-d|--directory] [-r|--recursive] [-o|--output output_dir] [-n|--no-validate] [-w|--overwrite] input1 input2 .. inputN
--h|--help           - this help message
--d|--directory      - if specified, scan every passed argument (input1 .. inputN) for files with extensions: avi, mpeg, mpg, mp4, mkv, rmvb
--r|--recursive      - if specified, every directory passed as input will be scanned recursively. Skipped when -d is not specified
--o|--output_dir     - specify directory when you want to save downloaded files. If not specified, try to save every subtitle in films directory
--n|--no-validate    - if given, specified list of films will not be validated for being movie files (work only without -d parameter)
--w|--overwrite      - if specified, existent subtitles will not be overwritten
-input1 .. inputN    - if -d is not specified, this is treaten like films files, to which you want to download subtitles. In other case, this is list of directories whis are scanned for files''' % (os.path.basename (sys.argv[0]),)
+    usage = __desc__ + "\n\n" + '''%s [-h|--help] [-v|--version] [-d|--directory] [-r|--recursive] [-o|--output output_dir] [-n|--no-validate] [-w|--overwrite] [-m|--get-manual-hash] input1 input2 .. inputN
+
+    -h|--help            - this help message.
+
+    -d|--directory       - if specified, scan every passed argument (input1 ..
+                           inputN) for files with extensions: avi, mpeg, mpg,
+                           mp4, mkv, rmvb.
+
+    -r|--recursive       - if specified, every directory passed as input will
+                           be scanned recursively. Skipped when -d is not
+                           specified.
+
+    -o|--output_dir      - specify directory when you want to save downloaded
+                           files. If not specified, try to save every subtitle
+                           in films directory.
+
+    -n|--no-validate     - if given, specified list of films will not be
+                           validated for being movie files (work only without
+                           -d parameter).
+
+    -w|--overwrite       - if specified, existent subtitles will not be
+                           overwritten.
+
+    -m|--get-manual-hash - if you know the MD5 hash of the input file, you can
+                           use this option to download concrete subtitles.
+                           This is useful when browsing the online NapiProjekt
+                           repository. Manual hash is in the form:
+                           'napiprojekt:<md5hash>'.
+
+    input1 .. inputN     - if -d is not specified, this is treaten like films
+                           files, to which you want to download subtitles. In
+                           other case, this is list of directories whis are
+                           scanned for files.''' % (os.path.basename
+                           (sys.argv[0]),)
 
     ## parsing getopt options
-    opts_short  = 'hdo:rnw'
-    opts_long   = ['help', 'directory', 'output=', 'recursive', 'no-validate', 'overwrite']
+    opts_short  = 'hdo:rnwm'
+    opts_long   = ['help', 'directory', 'output=', 'recursive', 'no-validate', 'overwrite', 'get-manual-hash']
     try:
         opts, args = getopt.gnu_getopt (sys.argv[1:], opts_short, opts_long)
     except getopt.GetoptError, e:
@@ -220,6 +268,8 @@ input1 .. inputN    - if -d is not specified, this is treaten like films files, 
     output          = None
     validate        = True
     overwrite       = False
+    manual_hash     = False
+
     for o, a in opts:
         if o in ('-h', '--help'):
             print usage
@@ -237,6 +287,12 @@ input1 .. inputN    - if -d is not specified, this is treaten like films files, 
             validate = False
         elif o in ('-w', '--overwrite'):
             overwrite = True
+        elif o in ('-m', '--get-manual-hash'):
+            manual_hash = True
+
+    if manual_hash:
+        get_hashes(args)
+        return
 
     ## find all films
     fnames = []
@@ -276,7 +332,10 @@ input1 .. inputN    - if -d is not specified, this is treaten like films files, 
 
     ## download all subtitles
     for fname in fnames:
-        r = get_subtitles (fname, output)
+        if not os.path.isfile (fname):
+            continue
+
+        r = get_subtitles (fname, calculate_md5, output)
         if r:
             status = u'done'
         else:
