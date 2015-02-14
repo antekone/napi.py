@@ -103,7 +103,7 @@ def extract_subtitles (data):
     with open (fh_arch_path, 'wb') as fh:
         fh.write (data)
 
-    if os.name() == 'nt':
+    if os.name == 'nt':
         path_to_7zip = probe_for_7zip()
         if path_to_7zip is None:
             print("Please install 7-Zip first, or at least put 7z.exe somewhere into your %PATH%.")
